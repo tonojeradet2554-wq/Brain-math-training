@@ -1,0 +1,7 @@
+{
+  "_note": "Throwaway accounts created in the LOCAL development database (server/data/cortex.db) while testing. Not used anywhere else. Delete server/data/ to reset.",
+  "accounts": [
+    { "username": "tester_one", "password": "cortex-dev-pass-1" },
+    { "username": "tester_two", "password": "cortex-dev-pass-2" }
+  ]
+}

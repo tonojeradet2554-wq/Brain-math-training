@@ -1,0 +1,94 @@
+.fm {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding-top: 4vh;
+  text-align: center;
+}
+
+.fm-round {
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fm-problem {
+  font-size: clamp(42px, 10vw, 68px);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  animation: problemIn 0.28s var(--ease) both;
+}
+
+.fm-blank {
+  display: inline-block;
+  min-width: 1.1em;
+  padding: 0 0.12em;
+  border-radius: 0.18em;
+  background: var(--tint-soft);
+  color: var(--tint);
+}
+
+@keyframes problemIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.fm-form {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.fm-input {
+  flex: 1;
+  height: 64px;
+  border-radius: 16px;
+  font-size: 30px;
+  font-weight: 650;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.fm-input.is-wrong {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.fm-submit {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border-radius: 16px;
+}
+
+.fm-submit svg {
+  width: 22px;
+  height: 22px;
+}
+
+.fm-feedback {
+  min-height: 24px;
+  font-size: 14px;
+  color: var(--text-3);
+  animation: fadeIn 0.2s ease both;
+}
+
+.fm-feedback.wrong {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.fm-feedback .plus-one {
+  font-size: 14px;
+  padding: 2px 10px;
+  color: var(--success);
+}

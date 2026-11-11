@@ -1,0 +1,334 @@
+.sudoku-layout {
+  width: 100%;
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 28px;
+  align-items: start;
+}
+
+.sudoku-play {
+  width: 100%;
+  /* Keep board + number pad on one screen on short laptop displays. */
+  max-width: clamp(300px, calc(100dvh - 280px), 560px);
+  justify-self: center;
+}
+
+.sudoku-board {
+  --line: var(--border);
+  --line-strong: var(--text);
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  aspect-ratio: 1;
+  border: 2px solid var(--line-strong);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: clamp(17px, 4.6vw, 27px);
+  font-weight: 450;
+  line-height: 1;
+  color: var(--text);
+  transition: background-color 0.12s ease;
+}
+
+.cell:nth-child(9n) {
+  border-right: 0;
+}
+
+.cell:nth-child(n + 73) {
+  border-bottom: 0;
+}
+
+.cell.box-r {
+  border-right: 2px solid var(--line-strong);
+}
+
+.cell.box-b {
+  border-bottom: 2px solid var(--line-strong);
+}
+
+.cell:focus-visible {
+  box-shadow: none;
+}
+
+.cell.given {
+  font-weight: 650;
+}
+
+.cell.filled {
+  color: var(--accent);
+  font-weight: 560;
+}
+
+.cell.wrong {
+  color: var(--danger);
+  background: var(--danger-soft);
+  font-weight: 560;
+}
+
+.cell.peer {
+  background: var(--surface-2);
+}
+
+.cell.same {
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+}
+
+.cell.wrong.peer,
+.cell.wrong.same {
+  background: var(--danger-soft);
+}
+
+.cell.selected {
+  background: color-mix(in srgb, var(--accent) 24%, var(--surface));
+  box-shadow: inset 0 0 0 2px var(--accent);
+  z-index: 1;
+}
+
+.cell.pending .cell-value {
+  opacity: 0.45;
+}
+
+.cell-value.is-correct {
+  animation: pop 0.32s var(--ease) both;
+}
+
+.cell-value.is-wrong {
+  animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.notes {
+  position: absolute;
+  inset: 3px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  place-items: center;
+  font-size: clamp(7px, 1.35vw, 10.5px);
+  font-weight: 560;
+  color: var(--text-3);
+}
+
+.sudoku-message {
+  min-height: 22px;
+  margin: 12px 0 2px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--danger);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.sudoku-message.show {
+  opacity: 1;
+}
+
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.numpad button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: 58px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  font-size: 22px;
+  font-weight: 560;
+  transition:
+    background-color 0.15s,
+    transform 0.1s,
+    opacity 0.15s;
+}
+
+.numpad button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.numpad button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.numpad button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.numpad small {
+  font-size: 10.5px;
+  font-weight: 560;
+  color: var(--text-3);
+}
+
+.sudoku-tools {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 560;
+  color: var(--text-2);
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.tool svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tool:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.tool.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tool-state {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.sudoku-side {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 22px;
+}
+
+.side-label {
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--text-3);
+}
+
+.side-time {
+  font-size: 38px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.side-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.side-small {
+  font-size: 13px;
+  color: var(--text-2);
+  font-weight: 560;
+}
+
+.side-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.side-num {
+  font-size: 22px;
+  font-weight: 650;
+  margin-top: 2px;
+}
+
+.side-num.danger {
+  color: var(--danger);
+}
+
+.side-hint {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.9;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  font: 600 11px/18px var(--font-sans);
+  text-align: center;
+  color: var(--text-2);
+}
+
+@media (max-width: 900px) {
+  .sudoku-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .sudoku-side {
+    position: static;
+    max-width: 560px;
+    width: 100%;
+    justify-self: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 24px;
+    padding: 16px 18px;
+  }
+  .sudoku-side .side-block:first-child,
+  .sudoku-side .side-hint {
+    display: none;
+  }
+  .sudoku-side .side-block {
+    flex: 1;
+    min-width: 160px;
+  }
+  .sudoku-side .side-stats {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .numpad {
+    gap: 4px;
+  }
+  .numpad button {
+    height: 52px;
+    font-size: 20px;
+    border-radius: 9px;
+  }
+}

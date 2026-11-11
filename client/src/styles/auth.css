@@ -1,0 +1,81 @@
+.auth {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 40px 16px;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text) 7%, transparent) 1px, transparent 0) 0 0 / 22px
+      22px,
+    var(--bg);
+}
+
+.auth {
+  position: relative;
+}
+
+.auth-lang {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.auth-panel {
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.auth-games {
+  display: flex;
+  gap: 6px;
+}
+
+.auth h1 {
+  font-size: 27px;
+}
+
+.auth-subtitle {
+  color: var(--text-2);
+  margin-top: 6px;
+}
+
+.auth-card {
+  margin-top: 24px;
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-form .btn {
+  margin-top: 4px;
+}
+
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.auth-footer a {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.auth-footer a:hover {
+  text-decoration-color: currentColor;
+}
