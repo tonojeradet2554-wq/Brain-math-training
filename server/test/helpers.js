@@ -1,12 +1,17 @@
+import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { openDatabase } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { seededRng } from '../src/games/random.js';
 import { config } from '../src/config.js';
 
-/** Boots the real app on a random port with an in-memory DB and a controllable clock. */
+/** Boots the real app on a random port with a throwaway database file and a controllable clock. */
 export async function startTestServer({ limits } = {}) {
-  const db = openDatabase(':memory:');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cortex-test-'));
+  const db = await openDatabase({ url: pathToFileURL(path.join(dir, 'test.db')).href });
   const time = { now: 1_750_000_000_000 };
   const app = createApp({
     db,
@@ -22,8 +27,16 @@ export async function startTestServer({ limits } = {}) {
     time,
     base,
     advance: (ms) => (time.now += ms),
-    secretState: (sessionId) => JSON.parse(db.prepare('SELECT state FROM game_sessions WHERE id = ?').get(sessionId).state),
-    close: () => new Promise((resolve) => server.close(resolve)),
+    secretState: async (sessionId) => JSON.parse((await db.get('SELECT state FROM game_sessions WHERE id = ?', sessionId)).state),
+    close: async () => {
+      await new Promise((resolve) => server.close(resolve));
+      db.close();
+      try {
+        fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch {
+        /* Windows may still hold the SQLite file for a moment; it's only a temp dir. */
+      }
+    },
   };
 }
 

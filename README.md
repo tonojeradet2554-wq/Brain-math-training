@@ -9,7 +9,7 @@ Three brain-training games — **Sudoku**, **Make 24** and **Fast Math** — wit
 
 ## Quick start
 
-Requires **Node.js 22.13+** (uses the built-in `node:sqlite`; no native modules to compile).
+Requires **Node.js 20.19+**.
 
 ```bash
 npm install
@@ -26,17 +26,44 @@ npm start          # Express serves the API and the built app on http://localhos
 Tests:
 
 ```bash
-npm test           # 36 server tests (game logic + full HTTP API) and 13 client tests (game helpers + i18n)
+npm test           # 37 server tests (game logic + full HTTP API) and 13 client tests (game helpers + i18n)
 ```
 
-Configuration (environment variables, all optional): `PORT` (default `3001`), `DB_PATH` (default `server/data/cortex.db`), `COOKIE_SECURE=true` when served over HTTPS. Delete `server/data/` to reset all data.
+Configuration (environment variables, all optional locally): `PORT` (default `3001`), `DB_PATH` (default `server/data/cortex.db`), `COOKIE_SECURE=true` when served over HTTPS, `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to use a hosted Turso database instead of the local file. Delete `server/data/` to reset local data.
+
+## Deploy for free (Vercel + Turso)
+
+Vercel runs the API as serverless functions, which can't keep files, so production data lives in **Turso** (hosted SQLite, free plan). Locally nothing changes; the app still uses the `server/data/cortex.db` file.
+
+**1. Create the database (Turso)**
+1. Sign up at https://turso.tech (you can sign in with GitHub).
+2. Create a database, e.g. `cortex`, in a region close to your players (e.g. Singapore for Thailand).
+3. On the database page, copy the **Database URL**. It starts with `libsql://`.
+4. Create a **token** for that database (read & write) and copy it.
+
+The tables are created automatically on the first request.
+
+**2. Deploy (Vercel)**
+1. Sign in at https://vercel.com with your GitHub account.
+2. **Add New → Project →** import the `Brain-math-training` repository. Leave the build settings alone; `vercel.json` already sets them.
+3. Under **Environment Variables** add:
+   - `TURSO_DATABASE_URL` = the `libsql://…` URL
+   - `TURSO_AUTH_TOKEN` = the token
+4. Click **Deploy**. Your game will be live at `https://<project-name>.vercel.app`.
+
+Every push to `main` redeploys automatically. If you add the variables after the first deploy, use **Deployments → Redeploy** so they take effect.
+
+How it fits together: `vercel.json` serves the built React app from `client/dist`, sends `/api/*` to `api/index.js` (the same Express app as local), and falls back to `index.html` for page routes. On Vercel, cookies are automatically `Secure`.
+
+Known limit: the login and sign-up rate limits are kept in memory, so on Vercel they apply per server instance rather than globally.
 
 ## Stack
 
 | Layer    | Choice                                                                      |
 | -------- | --------------------------------------------------------------------------- |
 | Server   | Node.js, Express 5, Helmet                                                  |
-| Database | SQLite via built-in `node:sqlite` (WAL mode, foreign keys)                  |
+| Database | SQLite via libSQL: a local file in development, Turso when hosted           |
+| Hosting  | Vercel (static app + one serverless function), or any Node host            |
 | Auth     | scrypt password hashes, random session tokens in HttpOnly SameSite cookies |
 | Client   | React 19, React Router 7, Vite, plain CSS design tokens, lucide icons      |
 
@@ -77,7 +104,7 @@ The interface is **Thai by default**, with an instant **ไทย | EN** switch 
 - **The server is authoritative.** It generates every puzzle, keeps solutions and answers in `game_sessions.state`, checks every answer and owns the clock. The client only ever gets a public view.
 - **Make 24 answers** go through a dedicated parser that uses exact fraction arithmetic and never `eval`. It checks that the four given numbers are each used exactly once, with no digit concatenation and no unary minus.
 - **No double scoring.** Each answer carries the round number, so a repeated or late submit for an already-solved round gets `409 STALE_ROUND`. Writes also use the attempt count as an optimistic lock, and the client blocks resubmits while a request is in flight.
-- **No double saves.** A session is finalised once (`status = 'active'` guard), and `game_results.session_id` is `UNIQUE`. Finishing is idempotent.
+- **No double saves, even across many server instances.** Finishing is a single atomic batch: claim the session (`status = 'active'` guard), insert the result only if the session is completed (`game_results.session_id` is `UNIQUE`), and update the stats only if that insert happened (`changes() = 1`). Answer writes use the attempt count as an optimistic lock and are re-checked on a collision.
 - **Timers.** Deadlines are set and enforced on the server, with a 750 ms grace window for network latency, so time used is capped at the round length. The client syncs its offset to the server clock and clears every timer on unmount.
 - **Auth.** Passwords are hashed with salted scrypt. Session tokens are 256-bit random values, and only their SHA-256 hash is stored. Logout deletes the server-side session. Login always runs scrypt (so usernames can't be probed by timing) and returns a generic error. Login, sign-up and game starts are rate limited.
 - **CSRF and headers.** Mutating requests must be JSON, and cookies are `SameSite=Lax`. Helmet sets the CSP and security headers in production.

@@ -9,7 +9,7 @@ before(async () => {
 });
 after(() => ctx.close());
 
-const resultCount = (sessionId) => ctx.db.prepare('SELECT COUNT(*) AS n FROM game_results WHERE session_id = ?').get(sessionId).n;
+const resultCount = async (sessionId) => (await ctx.db.get('SELECT COUNT(*) AS n FROM game_results WHERE session_id = ?', sessionId)).n;
 
 describe('auth', () => {
   test('rejects invalid registrations with field-level errors', async () => {
@@ -44,8 +44,8 @@ describe('auth', () => {
     assert.equal((await c.get('/auth/me')).data.user, null);
   });
 
-  test('stores a salted scrypt hash, never the password', () => {
-    const row = ctx.db.prepare("SELECT password_hash FROM users WHERE username = 'Alice_01'").get();
+  test('stores a salted scrypt hash, never the password', async () => {
+    const row = await ctx.db.get("SELECT password_hash FROM users WHERE username = 'Alice_01'");
     assert.match(row.password_hash, /^scrypt\$/);
     assert.ok(!row.password_hash.includes('wonderland'));
   });
@@ -120,7 +120,7 @@ describe('fast math', () => {
     assert.equal(s.deadlineAt - s.startedAt, 60_000);
     assert.equal(s.state.problem.answer, undefined, 'answer must not leak');
 
-    const { problem } = ctx.secretState(s.id);
+    const { problem } = (await ctx.secretState(s.id));
     const wrong = await c.post(`/sessions/${s.id}/answer`, { round: 1, answer: problem.answer + 1 });
     assert.equal(wrong.data.correct, false);
     assert.equal(wrong.data.session.score, 0);
@@ -140,7 +140,7 @@ describe('fast math', () => {
 
     // Time keeps running: after 60s (+grace) answers are refused and the round is recorded.
     ctx.advance(61_000);
-    const next = ctx.secretState(s.id).problem;
+    const next = (await ctx.secretState(s.id)).problem;
     const late = await c.post(`/sessions/${s.id}/answer`, { round: 2, answer: next.answer });
     assert.equal(late.status, 409);
     assert.equal(late.data.error.code, 'TIME_UP');
@@ -158,14 +158,14 @@ describe('fast math', () => {
     const f2 = await c.post(`/sessions/${s.id}/finish`);
     assert.equal(f1.data.session.result.score, 1);
     assert.equal(f2.data.session.result.score, 1);
-    assert.equal(resultCount(s.id), 1);
+    assert.equal(await resultCount(s.id), 1);
   });
 
   test('answers within the grace window still count; finishing at 0:00 records the score', async () => {
     const c = await registeredClient(ctx.base, 'grace');
     const s = (await c.post('/sessions', { gameType: 'fastmath', difficulty: 'easy' })).data.session;
     ctx.advance(60_400); // 400ms past the deadline — inside the 750ms grace window
-    const ans = ctx.secretState(s.id).problem.answer;
+    const ans = (await ctx.secretState(s.id)).problem.answer;
     const res = await c.post(`/sessions/${s.id}/answer`, { round: 1, answer: ans });
     assert.equal(res.data.correct, true);
     const fin = await c.post(`/sessions/${s.id}/finish`);
@@ -176,7 +176,7 @@ describe('fast math', () => {
   test('parallel duplicate submissions only score once', async () => {
     const c = await registeredClient(ctx.base, 'clicker');
     const s = (await c.post('/sessions', { gameType: 'fastmath', difficulty: 'easy' })).data.session;
-    const ans = ctx.secretState(s.id).problem.answer;
+    const ans = (await ctx.secretState(s.id)).problem.answer;
     const results = await Promise.all(
       Array.from({ length: 8 }, () => c.post(`/sessions/${s.id}/answer`, { round: 1, answer: ans })),
     );
@@ -243,7 +243,7 @@ describe('sudoku', () => {
     const s = (await c.post('/sessions', { gameType: 'sudoku', difficulty: 'easy' })).data.session;
     assert.equal(s.deadlineAt, null);
     assert.equal(JSON.stringify(s).includes('solution'), false, 'solution must not leak');
-    const { puzzle, solution } = ctx.secretState(s.id);
+    const { puzzle, solution } = (await ctx.secretState(s.id));
     const blanks = [...puzzle].map((ch, i) => (ch === '0' ? i : -1)).filter((i) => i >= 0);
 
     const fixed = puzzle.indexOf(puzzle.match(/[1-9]/)[0]);
@@ -279,7 +279,7 @@ describe('sudoku', () => {
     assert.equal(done.result.score, blanks.length);
     assert.equal(done.result.timeUsedMs, 5 * 60_000);
     assert.equal(done.result.mistakes, 1);
-    assert.equal(resultCount(s.id), 1);
+    assert.equal(await resultCount(s.id), 1);
     assert.equal((await c.get('/sessions/active?gameType=sudoku')).data.session, null);
   });
 });
@@ -319,7 +319,7 @@ describe('sessions, stats and leaderboard', () => {
   async function playFastMath(client, difficulty, correctAnswers) {
     const s = (await client.post('/sessions', { gameType: 'fastmath', difficulty })).data.session;
     for (let round = 1; round <= correctAnswers; round++) {
-      const ans = ctx.secretState(s.id).problem.answer;
+      const ans = (await ctx.secretState(s.id)).problem.answer;
       await client.post(`/sessions/${s.id}/answer`, { round, answer: ans });
     }
     ctx.advance(60_000);
@@ -383,7 +383,7 @@ describe('sessions, stats and leaderboard', () => {
   test('sudoku leaderboard ranks fastest time', async () => {
     const solve = async (client, ms) => {
       const s = (await client.post('/sessions', { gameType: 'sudoku', difficulty: 'hard' })).data.session;
-      const { puzzle, solution } = ctx.secretState(s.id);
+      const { puzzle, solution } = (await ctx.secretState(s.id));
       ctx.advance(ms);
       let last;
       for (let i = 0; i < 81; i++) {

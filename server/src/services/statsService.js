@@ -34,8 +34,8 @@ function difficultyView(row) {
 }
 
 export function createStatsService({ db }) {
-  function summary(userId) {
-    const rows = db.sql('SELECT * FROM player_stats WHERE user_id = ?').all(userId);
+  async function summary(userId) {
+    const rows = await db.all('SELECT * FROM player_stats WHERE user_id = ?', userId);
     const totals = { gamesPlayed: 0, totalScore: 0, totalTimeMs: 0 };
     const games = {};
 
@@ -71,25 +71,25 @@ export function createStatsService({ db }) {
       };
     }
 
-    const recent = db
-      .sql('SELECT * FROM game_results WHERE user_id = ? ORDER BY played_at DESC, id DESC LIMIT 5')
-      .all(userId)
-      .map(historyItem);
+    const recent = (
+      await db.all('SELECT * FROM game_results WHERE user_id = ? ORDER BY played_at DESC, id DESC LIMIT 5', userId)
+    ).map(historyItem);
 
     return { totals, games, recent };
   }
 
-  function history(userId, { gameType, limit = 20, offset = 0 } = {}) {
+  async function history(userId, { gameType, limit = 20, offset = 0 } = {}) {
     if (gameType && !GAME_TYPES.includes(gameType)) throw new HttpError(400, 'INVALID_GAME', 'Unknown game type');
     const lim = Math.min(Math.max(Number.parseInt(limit, 10) || 20, 1), 50);
     const off = Math.max(Number.parseInt(offset, 10) || 0, 0);
     const where = gameType ? 'user_id = ? AND game_type = ?' : 'user_id = ?';
     const params = gameType ? [userId, gameType] : [userId];
-    const total = db.sql(`SELECT COUNT(*) AS n FROM game_results WHERE ${where}`).get(...params).n;
-    const items = db
-      .sql(`SELECT * FROM game_results WHERE ${where} ORDER BY played_at DESC, id DESC LIMIT ? OFFSET ?`)
-      .all(...params, lim, off)
-      .map(historyItem);
+    const [count, rows] = await Promise.all([
+      db.get(`SELECT COUNT(*) AS n FROM game_results WHERE ${where}`, ...params),
+      db.all(`SELECT * FROM game_results WHERE ${where} ORDER BY played_at DESC, id DESC LIMIT ? OFFSET ?`, ...params, lim, off),
+    ]);
+    const total = count.n;
+    const items = rows.map(historyItem);
     return { items, total, offset: off, limit: lim, hasMore: off + items.length < total };
   }
 

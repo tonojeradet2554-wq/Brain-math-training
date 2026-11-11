@@ -33,19 +33,19 @@ export function requireJson(req, res, next) {
 }
 
 export function createAuthMiddleware({ db, clock, cookieName }) {
-  function authenticate(req, res, next) {
+  async function authenticate(req, res, next) {
     req.user = null;
     req.sessionTokenHash = null;
     const token = parseCookies(req.headers.cookie)[cookieName];
     if (token && token.length <= 128) {
       const tokenHash = hashToken(token);
-      const row = db
-        .sql(
-          `SELECT u.id, u.username FROM auth_sessions s
-           JOIN users u ON u.id = s.user_id
-           WHERE s.token_hash = ? AND s.expires_at > ?`,
-        )
-        .get(tokenHash, clock());
+      const row = await db.get(
+        `SELECT u.id, u.username FROM auth_sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = ? AND s.expires_at > ?`,
+        tokenHash,
+        clock(),
+      );
       if (row) {
         req.user = { id: row.id, username: row.username };
         req.sessionTokenHash = tokenHash;

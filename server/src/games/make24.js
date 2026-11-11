@@ -7,6 +7,7 @@ import { rational, equals, toString } from './rational.js';
 import { parse, evaluate, collectNumbers, format, ExpressionError } from './expression.js';
 import { HttpError } from '../http/errors.js';
 import { pick, shuffle } from './random.js';
+import { MAKE24_POOLS as PRECOMPUTED_POOLS } from './make24-pools.js';
 
 export const TARGET = 24;
 const TARGET_Q = rational(TARGET);
@@ -148,10 +149,11 @@ export const DIFFICULTY_RULES = {
   hard: { maxValue: 13, test: (a) => a.difficulty > 5.5 },
 };
 
-let pools = null;
-
-export function getPools() {
-  if (pools) return pools;
+/**
+ * Classifies every 4-number set (1–13). Takes ~1 s, so the result is generated
+ * ahead of time into make24-pools.js (npm run pools) and a test keeps it in sync.
+ */
+export function computePools() {
   const built = { easy: [], normal: [], hard: [] };
   for (let a = 1; a <= 13; a++)
     for (let b = a; b <= 13; b++)
@@ -164,9 +166,11 @@ export function getPools() {
             if (d <= rule.maxValue && rule.test(info, d)) built[level].push(set);
           }
         }
-  pools = built;
-  return pools;
+  return built;
 }
+
+/** Precomputed pools (instant on serverless cold starts). */
+export const getPools = () => PRECOMPUTED_POOLS;
 
 const keyOf = (numbers) => numbers.slice().sort((x, y) => x - y).join(',');
 

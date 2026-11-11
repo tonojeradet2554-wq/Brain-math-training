@@ -10,8 +10,9 @@ import { getPools } from './games/make24.js';
 const isDev = process.argv.includes('--dev');
 const logger = { info: (...a) => console.log(...a), error: (...a) => console.error(...a) };
 
-const db = openDatabase(config.dbPath);
-getPools(); // build Make 24 puzzle pools once at boot (~1s) instead of on the first request
+const db = await openDatabase({ url: config.dbUrl, authToken: config.dbAuthToken });
+getPools(); // load Make 24 puzzle pools once at boot
+logger.info(`Database: ${config.dbUrl.startsWith('file:') ? 'local file' : 'Turso (remote)'}`);
 
 const server = http.createServer();
 

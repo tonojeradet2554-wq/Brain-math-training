@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse, evaluate, collectNumbers, format, ExpressionError } from '../src/games/expression.js';
 import { toString } from '../src/games/rational.js';
-import { analyze, checkAnswer, findSolution, getPools, nextPuzzle, DIFFICULTY_RULES } from '../src/games/make24.js';
+import { analyze, checkAnswer, computePools, findSolution, getPools, nextPuzzle, DIFFICULTY_RULES } from '../src/games/make24.js';
 import { countSolutions, generatePuzzle, isValidSolution, BLANKS, sudokuGame } from '../src/games/sudoku.js';
 import { generateProblem, fastMathGame } from '../src/games/fastmath.js';
 import { seededRng } from '../src/games/random.js';
@@ -66,6 +66,10 @@ describe('make 24', () => {
     assert.equal(analyze([1, 1, 1, 1]).solvable, false);
     assert.equal(analyze([13, 13, 13, 13]).solvable, false);
     assert.equal(findSolution([1, 1, 1, 1]), null);
+  });
+
+  test('the precomputed pools file matches the solver (run `npm run pools` if this fails)', () => {
+    assert.deepEqual(getPools(), computePools());
   });
 
   test('every pooled puzzle is solvable, in range, and its solution checks out', () => {

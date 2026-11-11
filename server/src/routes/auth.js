@@ -59,16 +59,19 @@ export function authRoutes({ db, clock, config, limits }) {
     path: '/',
   };
 
-  function startAuthSession(res, userId) {
+  async function startAuthSession(res, userId) {
     const token = newToken();
     const now = clock();
-    db.sql('DELETE FROM auth_sessions WHERE user_id = ? AND expires_at <= ?').run(userId, now);
-    db.sql('INSERT INTO auth_sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(
-      hashToken(token),
-      userId,
-      now,
-      now + config.sessionTtlMs,
-    );
+    await db.batch([
+      ['DELETE FROM auth_sessions WHERE user_id = ? AND expires_at <= ?', userId, now],
+      [
+        'INSERT INTO auth_sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
+        hashToken(token),
+        userId,
+        now,
+        now + config.sessionTtlMs,
+      ],
+    ]);
     res.cookie(config.cookieName, token, { ...cookieOptions, maxAge: config.sessionTtlMs });
   }
 
@@ -81,26 +84,30 @@ export function authRoutes({ db, clock, config, limits }) {
     const password = validateNewPassword(req.body?.password);
     const key = usernameKey(username);
 
-    if (db.sql('SELECT 1 FROM users WHERE username_key = ?').get(key)) {
+    if (await db.get('SELECT 1 FROM users WHERE username_key = ?', key)) {
       throw new HttpError(409, 'USERNAME_TAKEN', 'That username is already taken', { field: 'username' });
     }
 
     const passwordHash = await hashPassword(password);
     let userId;
     try {
-      const info = db
-        .sql('INSERT INTO users (username, username_key, password_hash, created_at) VALUES (?, ?, ?, ?)')
-        .run(username, key, passwordHash, clock());
-      userId = Number(info.lastInsertRowid);
+      const info = await db.run(
+        'INSERT INTO users (username, username_key, password_hash, created_at) VALUES (?, ?, ?, ?)',
+        username,
+        key,
+        passwordHash,
+        clock(),
+      );
+      userId = info.lastInsertRowid;
     } catch (err) {
       // Two sign-ups for the same name raced each other past the check above.
-      if (String(err?.message).includes('UNIQUE constraint failed')) {
+      if (/UNIQUE constraint failed|SQLITE_CONSTRAINT/.test(String(err?.message) + String(err?.code))) {
         throw new HttpError(409, 'USERNAME_TAKEN', 'That username is already taken', { field: 'username' });
       }
       throw err;
     }
 
-    startAuthSession(res, userId);
+    await startAuthSession(res, userId);
     res.status(201).json({ user: { id: userId, username } });
   });
 
@@ -112,19 +119,20 @@ export function authRoutes({ db, clock, config, limits }) {
     const invalid = new HttpError(401, 'INVALID_CREDENTIALS', 'Incorrect username or password');
     if (rawUsername.length > 64 || password.length > 256) throw invalid;
 
-    const user = db
-      .sql('SELECT id, username, password_hash FROM users WHERE username_key = ?')
-      .get(usernameKey(normalizeUsername(rawUsername)));
+    const user = await db.get(
+      'SELECT id, username, password_hash FROM users WHERE username_key = ?',
+      usernameKey(normalizeUsername(rawUsername)),
+    );
     // Always run scrypt so response time doesn't reveal whether the username exists.
     const ok = await verifyPassword(password, user ? user.password_hash : await dummyHash());
     if (!user || !ok) throw invalid;
 
-    startAuthSession(res, user.id);
+    await startAuthSession(res, user.id);
     res.json({ user: { id: user.id, username: user.username } });
   });
 
-  router.post('/logout', (req, res) => {
-    if (req.sessionTokenHash) db.sql('DELETE FROM auth_sessions WHERE token_hash = ?').run(req.sessionTokenHash);
+  router.post('/logout', async (req, res) => {
+    if (req.sessionTokenHash) await db.run('DELETE FROM auth_sessions WHERE token_hash = ?', req.sessionTokenHash);
     res.clearCookie(config.cookieName, cookieOptions);
     res.json({ ok: true });
   });

@@ -1,7 +1,11 @@
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 
+/**
+ * Storage is libSQL: a local SQLite file in development, or a hosted Turso
+ * database in production (Vercel functions can't keep files between requests).
+ */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +59,7 @@ CREATE TABLE IF NOT EXISTS game_results (
 );
 CREATE INDEX IF NOT EXISTS idx_game_results_user ON game_results(user_id, played_at DESC);
 
--- Aggregates per player / game / difficulty, updated in the same transaction
+-- Aggregates per player / game / difficulty, updated in the same batch
 -- as each result insert. Powers personal stats and the leaderboard.
 CREATE TABLE IF NOT EXISTS player_stats (
   user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -75,39 +79,57 @@ CREATE TABLE IF NOT EXISTS player_stats (
 CREATE INDEX IF NOT EXISTS idx_player_stats_board ON player_stats(game_type, difficulty, best_score DESC);
 `;
 
-export function openDatabase(file) {
-  const inMemory = file === ':memory:';
-  if (!inMemory) fs.mkdirSync(path.dirname(file), { recursive: true });
-  const db = new DatabaseSync(file);
-  if (!inMemory) db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA synchronous = NORMAL;');
-  db.exec(SCHEMA);
-  return withStatementCache(db);
+/** libSQL rejects `undefined`; booleans become 0/1. */
+const clean = (args) => args.map((a) => (a === undefined ? null : typeof a === 'boolean' ? Number(a) : a));
+
+function toObjects(rs) {
+  return rs.rows.map((row) => Object.fromEntries(rs.columns.map((col, i) => [col, row[i]])));
 }
 
-/** Adds db.sql(text) which returns a cached prepared statement. */
-function withStatementCache(db) {
-  const cache = new Map();
-  db.sql = (text) => {
-    let stmt = cache.get(text);
-    if (!stmt) {
-      stmt = db.prepare(text);
-      cache.set(text, stmt);
-    }
-    return stmt;
-  };
-  return db;
-}
+/**
+ * Opens the database and makes sure the schema exists.
+ * @param {{ url: string, authToken?: string }} options  url is "file:..." locally or "libsql://..." for Turso
+ */
+export async function openDatabase({ url, authToken }) {
+  const isLocalFile = url.startsWith('file:');
+  if (isLocalFile) fs.mkdirSync(path.dirname(fileURLToPath(url)), { recursive: true });
 
-/** Runs fn inside a write transaction. Not re-entrant: never nest calls. */
-export function transaction(db, fn) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const result = fn();
-    db.exec('COMMIT');
-    return result;
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
+  // Remote Turso uses the pure-HTTP client (no native binary to bundle on serverless);
+  // local files need the native SQLite driver.
+  const { createClient } = isLocalFile ? await import('@libsql/client') : await import('@libsql/client/web');
+  const client = createClient({ url, authToken: authToken || undefined, intMode: 'number' });
+  if (isLocalFile) {
+    await client.execute('PRAGMA journal_mode = WAL');
+    await client.execute('PRAGMA busy_timeout = 5000');
   }
+  await client.executeMultiple(SCHEMA);
+
+  return {
+    client,
+    /** First row as a plain object, or undefined. */
+    async get(sql, ...args) {
+      return toObjects(await client.execute({ sql, args: clean(args) }))[0];
+    },
+    async all(sql, ...args) {
+      return toObjects(await client.execute({ sql, args: clean(args) }));
+    },
+    async run(sql, ...args) {
+      const rs = await client.execute({ sql, args: clean(args) });
+      return { changes: rs.rowsAffected, lastInsertRowid: rs.lastInsertRowid == null ? undefined : Number(rs.lastInsertRowid) };
+    },
+    /**
+     * Runs statements atomically, in order, on one connection (so SQL changes()
+     * can see the previous statement). Each item is [sql, ...args].
+     */
+    async batch(statements) {
+      const results = await client.batch(
+        statements.map(([sql, ...args]) => ({ sql, args: clean(args) })),
+        'write',
+      );
+      return results.map((rs) => ({ changes: rs.rowsAffected }));
+    },
+    close() {
+      client.close();
+    },
+  };
 }

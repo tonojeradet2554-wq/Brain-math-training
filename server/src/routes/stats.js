@@ -3,13 +3,13 @@ import express from 'express';
 export function statsRoutes({ stats }) {
   const router = express.Router();
 
-  router.get('/me', (req, res) => {
-    res.json(stats.summary(req.user.id));
+  router.get('/me', async (req, res) => {
+    res.json(await stats.summary(req.user.id));
   });
 
-  router.get('/me/history', (req, res) => {
+  router.get('/me/history', async (req, res) => {
     const { game, limit, offset } = req.query;
-    res.json(stats.history(req.user.id, { gameType: game || undefined, limit, offset }));
+    res.json(await stats.history(req.user.id, { gameType: game || undefined, limit, offset }));
   });
 
   return router;
@@ -18,9 +18,9 @@ export function statsRoutes({ stats }) {
 export function leaderboardRoutes({ leaderboard }) {
   const router = express.Router();
 
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     const { game = 'fastmath', difficulty = 'easy' } = req.query;
-    res.json(leaderboard.top(String(game), String(difficulty), req.user.id));
+    res.json(await leaderboard.top(String(game), String(difficulty), req.user.id));
   });
 
   return router;

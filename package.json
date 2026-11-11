@@ -2,7 +2,7 @@
   "name": "cortex-brain-training",
   "private": true,
   "version": "1.0.0",
-  "description": "Cortex — a brain training platform with Sudoku, Make 24 and Fast Math",
+  "description": "Cortex â€” a brain training platform with Sudoku, Make 24 and Fast Math",
   "type": "module",
   "workspaces": [
     "server",
@@ -15,6 +15,6 @@
     "test": "npm test --workspaces"
   },
   "engines": {
-    "node": ">=22.13"
+    "node": ">=20.19"
   }
 }

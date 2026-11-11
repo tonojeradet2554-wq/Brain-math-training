@@ -17,7 +17,7 @@ const silentLogger = { info() {}, error() {} };
  * in-memory database, a fake clock and a seeded random generator.
  *
  * @param {object} options
- * @param {import('node:sqlite').DatabaseSync} options.db
+ * @param {Awaited<ReturnType<typeof import('./db.js').openDatabase>>} options.db
  * @param {() => number} [options.clock]
  * @param {() => number} [options.rng]
  * @param {(app: import('express').Express) => void} [options.mountFrontend]
@@ -40,6 +40,7 @@ export function createApp({
 
   const app = express();
   app.disable('x-powered-by');
+  if (config.trustProxy) app.set('trust proxy', true);
 
   app.use(
     helmet({

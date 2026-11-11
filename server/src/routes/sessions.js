@@ -13,29 +13,29 @@ export function sessionRoutes({ games, clock, limits }) {
     message: 'You’re starting games too quickly. Please wait a moment.',
   });
 
-  router.post('/', startLimiter, (req, res) => {
+  router.post('/', startLimiter, async (req, res) => {
     const { gameType, difficulty } = req.body ?? {};
-    res.status(201).json({ session: games.start(req.user, gameType, difficulty) });
+    res.status(201).json({ session: await games.start(req.user, gameType, difficulty) });
   });
 
-  router.get('/active', (req, res) => {
-    res.json({ session: games.findActive(req.user, req.query.gameType) });
+  router.get('/active', async (req, res) => {
+    res.json({ session: await games.findActive(req.user, req.query.gameType) });
   });
 
-  router.get('/:id', (req, res) => {
-    res.json({ session: games.get(req.user, req.params.id) });
+  router.get('/:id', async (req, res) => {
+    res.json({ session: await games.get(req.user, req.params.id) });
   });
 
-  router.post('/:id/answer', (req, res) => {
-    res.json(games.answer(req.user, req.params.id, req.body));
+  router.post('/:id/answer', async (req, res) => {
+    res.json(await games.answer(req.user, req.params.id, req.body));
   });
 
-  router.post('/:id/finish', (req, res) => {
-    res.json({ session: games.finish(req.user, req.params.id) });
+  router.post('/:id/finish', async (req, res) => {
+    res.json({ session: await games.finish(req.user, req.params.id) });
   });
 
-  router.post('/:id/abandon', (req, res) => {
-    res.json({ session: games.abandon(req.user, req.params.id) });
+  router.post('/:id/abandon', async (req, res) => {
+    res.json({ session: await games.abandon(req.user, req.params.id) });
   });
 
   return router;
