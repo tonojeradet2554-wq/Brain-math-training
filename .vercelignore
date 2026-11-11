@@ -1,0 +1,5 @@
+# Vercel deploys ONLY the single-file game (index.html, built with `npm run build:html`).
+# Everything else (server, React sources, tests) stays in the repo but isn't uploaded.
+/*
+!index.html
+!vercel.json

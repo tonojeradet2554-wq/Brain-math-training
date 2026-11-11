@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, ScrollRestoration, useParams, useRouteError } from 'react-router';
+import { createBrowserRouter, createHashRouter, Outlet, ScrollRestoration, useParams, useRouteError } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { useAuth } from './auth/AuthContext.jsx';
 import { useI18n } from './i18n/I18nContext.jsx';
@@ -58,7 +58,10 @@ function RouteError() {
   );
 }
 
-const router = createBrowserRouter([
+// The single-file build uses #/ URLs so it works from any static host or straight from disk.
+const createRouter = import.meta.env.MODE === 'single' ? createHashRouter : createBrowserRouter;
+
+const router = createRouter([
   {
     element: <Root />,
     errorElement: <RouteError />,

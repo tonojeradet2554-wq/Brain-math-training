@@ -1,15 +1,22 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { viteSingleFile } from 'vite-plugin-singlefile';
 
-// In development the Express server hosts Vite in middleware mode (one port).
-// The proxy below is only used if you run `vite` on its own.
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: { '/api': 'http://localhost:3001' },
-  },
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-  },
+// Normal build: React app for the Express / Vercel-function backend.
+// `--mode single`: everything (game logic, fonts, styles) inlined into ONE
+// index.html that runs with no server — see src/local/localBackend.js.
+export default defineConfig(({ mode }) => {
+  const single = mode === 'single';
+  return {
+    plugins: single ? [react(), viteSingleFile()] : [react()],
+    server: {
+      proxy: { '/api': 'http://localhost:3001' },
+      fs: { allow: [fileURLToPath(new URL('..', import.meta.url))] },
+    },
+    build: {
+      outDir: single ? 'dist-single' : 'dist',
+      emptyOutDir: true,
+    },
+  };
 });

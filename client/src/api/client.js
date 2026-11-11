@@ -15,7 +15,15 @@ export function setUnauthorizedHandler(fn) {
   unauthorizedHandler = fn;
 }
 
-async function request(method, path, body) {
+/** Single-file build: the "server" runs inside the page (see local/localBackend.js). */
+async function localRequest(method, path, body) {
+  const { handleLocal } = await import('../local/localBackend.js');
+  // Clone the body so the in-page backend can't share objects with React state.
+  const { status, payload } = await handleLocal(method, path, body === undefined ? undefined : structuredClone(body));
+  return { ok: status >= 200 && status < 300, status, payload: structuredClone(payload) };
+}
+
+async function httpRequest(method, path, body) {
   let res;
   try {
     res = await fetch(`/api${path}`, {
@@ -37,6 +45,13 @@ async function request(method, path, body) {
       payload = null;
     }
   }
+  return { ok: res.ok, status: res.status, payload };
+}
+
+async function request(method, path, body) {
+  const res =
+    import.meta.env.MODE === 'single' ? await localRequest(method, path, body) : await httpRequest(method, path, body);
+  const { payload } = res;
 
   if (!res.ok) {
     const err = payload?.error ?? {};

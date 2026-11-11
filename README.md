@@ -31,7 +31,18 @@ npm test           # 37 server tests (game logic + full HTTP API) and 13 client 
 
 Configuration (environment variables, all optional locally): `PORT` (default `3001`), `DB_PATH` (default `server/data/cortex.db`), `COOKIE_SECURE=true` when served over HTTPS, `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to use a hosted Turso database instead of the local file. Delete `server/data/` to reset local data.
 
-## Deploy for free (Vercel + Turso)
+## Single-file version: `index.html` (what Vercel deploys)
+
+`index.html` in this folder is the **whole game in one file**: React app, game logic, Thai/English text and fonts. It runs with no server: just double-click it, or host it anywhere.
+
+- **Rebuild it** after changing the code: `npm run build:html`
+- **Deploy to Vercel:** import this GitHub repository and click **Deploy**. No settings or environment variables are needed. `vercel.json` + `.vercelignore` make Vercel upload only `index.html`.
+- **How it works:** built with `--mode single`, the app runs the same game modules in the page (`client/src/local/localBackend.js`) and saves accounts, results and stats in the browser's `localStorage`. Passwords are stored as PBKDF2 hashes. Pages use `#/…` URLs, so no server routing is needed.
+- **Trade-off:** data lives in each browser, so every device has its own accounts and leaderboard, and players can't see each other's scores across devices. For a shared online leaderboard, use the full-stack setup below.
+
+## Full-stack deploy (Vercel + Turso), optional
+
+For a shared database across all players, the Express API can run on Vercel with a Turso database. To use this, restore the full-stack `vercel.json` from commit `ed0fe8e` and delete `.vercelignore`.
 
 Vercel runs the API as serverless functions, which can't keep files, so production data lives in **Turso** (hosted SQLite, free plan). Locally nothing changes; the app still uses the `server/data/cortex.db` file.
 
